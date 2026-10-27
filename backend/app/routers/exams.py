@@ -11,6 +11,7 @@ from app.models.exam import Exam, ExamStatus
 from app.models.exam_attempt import ExamAttempt, Question, Response
 from app.models.exam_link import ExamLink
 from app.models.grade import AuditLog, Grade, GradingDetail, QuestionFeedback
+from app.models.id_verification_photo import IdVerificationPhoto
 from app.models.submission import ExamSubmission
 from app.models.user import User, UserRole
 from app.schemas.exam import ExamCreate, ExamOut, ExamRubricUpdate, ExamUpdate
@@ -186,8 +187,9 @@ def delete_exam(
     current_user: User = Depends(require_role(UserRole.instructor)),
 ):
     """Cascades through everything that only has meaning attached to this
-    exam — attempts/grades, the link, and bulk-tagged student submissions
-    (including their vector-store chunks)."""
+    exam — attempts/grades, the link, ID verification photos, and
+    bulk-tagged student submissions (including their vector-store
+    chunks)."""
     exam = get_owned_exam(exam_id, db, current_user)
 
     attempt_ids = [a.id for a in db.query(ExamAttempt.id).filter(ExamAttempt.exam_id == exam_id).all()]
@@ -211,6 +213,7 @@ def delete_exam(
         db.query(ExamAttempt).filter(ExamAttempt.id.in_(attempt_ids)).delete(synchronize_session=False)
 
     db.query(ExamLink).filter(ExamLink.exam_id == exam_id).delete()
+    db.query(IdVerificationPhoto).filter(IdVerificationPhoto.exam_id == exam_id).delete()
 
     submissions = db.query(ExamSubmission).filter(ExamSubmission.exam_id == exam_id).all()
     for submission in submissions:
