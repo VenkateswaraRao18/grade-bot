@@ -1,11 +1,10 @@
 import logging
+import tempfile
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.deps import require_role
 from app.db.session import get_db
 from app.models.submission import ExamSubmission
@@ -120,9 +119,6 @@ def bulk_upload_submissions(
     if errors:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"errors": errors})
 
-    storage_dir = Path(settings.submission_storage_dir)
-    storage_dir.mkdir(parents=True, exist_ok=True)
-
     norm_to_sid = {fname.strip().lower(): sid for sid, fname in mapping_rows}
     created = 0
     updated = 0
@@ -143,11 +139,7 @@ def bulk_upload_submissions(
         is_update = submission is not None
         submission_id = submission.id if submission else uuid.uuid4()
 
-        dest_path = storage_dir / f"{submission_id}{extension}"
-        dest_path.write_bytes(contents)
-
         if is_update:
-            submission.file_path = str(dest_path)
             submission.original_filename = fname
             submission.content_type = content_type
             submission.indexed = False
@@ -157,7 +149,6 @@ def bulk_upload_submissions(
                 id=submission_id,
                 exam_id=exam_id,
                 student_id_number=student_id_number,
-                file_path=str(dest_path),
                 original_filename=fname,
                 content_type=content_type,
             )
@@ -167,7 +158,13 @@ def bulk_upload_submissions(
         db.refresh(submission)
 
         try:
-            text = extract_text_from_material(submission.file_path, submission.content_type)
+            # Extracted once from a temp file (auto-deleted on exit) and
+            # never persisted — only the resulting indexed text is kept
+            # (as embedded chunks in pgvector), not the original document.
+            with tempfile.NamedTemporaryFile(suffix=extension) as tmp:
+                tmp.write(contents)
+                tmp.flush()
+                text = extract_text_from_material(tmp.name, content_type)
             chunks = chunk_text(text)
             index_submission_chunks(submission.id, exam_id, student_id_number, chunks)
             submission.indexed = True

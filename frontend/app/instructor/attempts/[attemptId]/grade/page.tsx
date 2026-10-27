@@ -81,6 +81,7 @@ export default function GradeReviewPage(props: PageProps<"/instructor/attempts/[
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [endPhotoUrl, setEndPhotoUrl] = useState<string | null>(null);
+  const [idPhotoUrl, setIdPhotoUrl] = useState<string | null>(null);
   const [resultsLink, setResultsLink] = useState<string | null>(null);
   const [resultsLinkCopied, setResultsLinkCopied] = useState(false);
 
@@ -104,6 +105,16 @@ export default function GradeReviewPage(props: PageProps<"/instructor/attempts/[
       const token = getToken() ?? undefined;
       const blob = await apiFetchBlob(`/attempts/${attemptId}/end-photo`, { token });
       setEndPhotoUrl(URL.createObjectURL(blob));
+    } catch {
+      // best-effort — the button just stays visible to retry
+    }
+  }
+
+  async function loadIdPhoto() {
+    try {
+      const token = getToken() ?? undefined;
+      const blob = await apiFetchBlob(`/attempts/${attemptId}/id-photo`, { token });
+      setIdPhotoUrl(URL.createObjectURL(blob));
     } catch {
       // best-effort — the button just stays visible to retry
     }
@@ -554,19 +565,48 @@ export default function GradeReviewPage(props: PageProps<"/instructor/attempts/[
                 </Button>
               </Card>
 
-              {context?.has_end_photo && (
+              {(context?.has_id_photo || context?.has_end_photo) && (
                 <Card className="p-5">
-                  <p className="text-xs font-bold uppercase tracking-wide text-ink-soft">End-of-exam photo</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-ink-soft">Identity photos</p>
                   <p className="mt-1 text-xs text-ink-soft/80">
-                    Taken right after the exam ended, to confirm the same person finished the session.
+                    Taken at the start (ID verification) and end of the exam, to confirm the same person sat the
+                    whole session.
                   </p>
-                  {endPhotoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={endPhotoUrl} alt="End-of-exam" className="mt-3 w-full rounded-lg border border-line" />
-                  ) : (
-                    <Button variant="secondary" size="sm" onClick={loadEndPhoto} className="mt-3 w-full">
-                      View photo
-                    </Button>
+
+                  {context?.has_id_photo && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-ink">Start-of-exam ID photo</p>
+                      {idPhotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={idPhotoUrl}
+                          alt="ID verification"
+                          className="mt-1.5 w-full rounded-lg border border-line"
+                        />
+                      ) : (
+                        <Button variant="secondary" size="sm" onClick={loadIdPhoto} className="mt-1.5 w-full">
+                          View ID photo
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {context?.has_end_photo && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-ink">End-of-exam photo</p>
+                      {endPhotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={endPhotoUrl}
+                          alt="End-of-exam"
+                          className="mt-1.5 w-full rounded-lg border border-line"
+                        />
+                      ) : (
+                        <Button variant="secondary" size="sm" onClick={loadEndPhoto} className="mt-1.5 w-full">
+                          View photo
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </Card>
               )}

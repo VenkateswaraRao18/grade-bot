@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,8 +44,10 @@ class ExamAttempt(Base):
     ended_reason: Mapped[str | None] = mapped_column(String, nullable=True)
     # A single bookend identity photo taken right after the exam ends (not
     # continuous monitoring during it — that's explicitly out of MVP scope).
-    # Mirrors the start-of-exam ID recheck, just at the other end.
-    end_photo_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Mirrors the start-of-exam ID recheck, just at the other end. Stored as
+    # bytes directly (not a disk path) so the backend stays stateless.
+    end_photo_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    end_photo_content_type: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Question(Base):

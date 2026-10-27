@@ -11,6 +11,7 @@ import httpx
 from anthropic import Anthropic
 
 from app.core.config import settings
+from app.models.submission_chunk import EMBEDDING_DIM
 
 logger = logging.getLogger(__name__)
 
@@ -145,14 +146,23 @@ def _ollama_embed(texts: list[str], embed_model: str) -> list[list[float]]:
 def _gemini_embed(texts: list[str], api_key: str, model: str, usage_label: str = "embedding") -> list[list[float]]:
     """Production embeddings — one batchEmbedContents call for every chunk
     instead of Ollama's per-text loop, since Gemini's batch endpoint takes
-    the whole list in a single request. Vectors come back in request order."""
+    the whole list in a single request. Vectors come back in request order.
+    outputDimensionality is pinned to match Ollama's fixed nomic-embed-text
+    width (see models/submission_chunk.EMBEDDING_DIM) — the pgvector column
+    is a single fixed width, so dev (Ollama) and prod (Gemini) have to
+    agree on it regardless of which one actually wrote a given row."""
     with httpx.Client(base_url=GEMINI_BASE_URL, timeout=60.0) as client:
         res = client.post(
             f"/models/{model}:batchEmbedContents",
             headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
             json={
                 "requests": [
-                    {"model": f"models/{model}", "content": {"parts": [{"text": text}]}} for text in texts
+                    {
+                        "model": f"models/{model}",
+                        "content": {"parts": [{"text": text}]},
+                        "outputDimensionality": EMBEDDING_DIM,
+                    }
+                    for text in texts
                 ]
             },
         )

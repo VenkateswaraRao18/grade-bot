@@ -17,7 +17,9 @@ from app.models import (  # noqa: E402,F401
     exam_attempt,
     exam_link,
     grade,
+    id_verification_photo,
     submission,
+    submission_chunk,
     user,
 )
 

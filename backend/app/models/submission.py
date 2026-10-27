@@ -31,7 +31,6 @@ class ExamSubmission(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
     student_id_number: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
-    file_path: Mapped[str] = mapped_column(String, nullable=False)
     original_filename: Mapped[str] = mapped_column(String, nullable=False)
     content_type: Mapped[str] = mapped_column(String, nullable=False)
     indexed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

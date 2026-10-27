@@ -59,6 +59,7 @@ class AttemptContextOut(BaseModel):
     status: str
     ended_reason: str | None = None
     has_end_photo: bool = False
+    has_id_photo: bool = False
 
 
 class GradeReviewOut(BaseModel):

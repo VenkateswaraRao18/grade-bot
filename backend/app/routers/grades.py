@@ -4,7 +4,10 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse, StreamingResponse
+# Aliased — app.models.exam_attempt.Response (a student's answer row) is
+# already the name used throughout this file; this is the HTTP response.
+from fastapi.responses import Response as RawResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -14,6 +17,7 @@ from app.db.session import get_db
 from app.models.exam import Exam
 from app.models.exam_attempt import AttemptStatus, ExamAttempt, Question, Response
 from app.models.grade import AuditLog, Grade, GradeStatus, GradingDetail, QuestionFeedback
+from app.models.id_verification_photo import IdVerificationPhoto
 from app.models.user import User, UserRole
 from app.routers.exams import get_owned_exam
 from app.schemas.grade import (
@@ -94,12 +98,24 @@ def get_attempt_context(
     attempt = get_owned_attempt_for_instructor(attempt_id, db, current_user)
     exam = db.get(Exam, attempt.exam_id)
     student = db.get(User, attempt.student_id) if attempt.student_id else None
+    has_id_photo = False
+    if attempt.candidate_id_number:
+        has_id_photo = (
+            db.query(IdVerificationPhoto)
+            .filter(
+                IdVerificationPhoto.exam_id == attempt.exam_id,
+                IdVerificationPhoto.candidate_id_number == attempt.candidate_id_number,
+            )
+            .first()
+            is not None
+        )
     return AttemptContextOut(
         student_email=attempt_display_name(attempt, student),
         exam_name=exam.name,
         status=attempt.status.value,
         ended_reason=attempt.ended_reason,
-        has_end_photo=bool(attempt.end_photo_path),
+        has_end_photo=bool(attempt.end_photo_data),
+        has_id_photo=has_id_photo,
     )
 
 
@@ -110,9 +126,35 @@ def get_end_photo(
     current_user: User = Depends(require_role(UserRole.instructor)),
 ):
     attempt = get_owned_attempt_for_instructor(attempt_id, db, current_user)
-    if not attempt.end_photo_path:
+    if not attempt.end_photo_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No end-of-exam photo for this attempt")
-    return FileResponse(attempt.end_photo_path)
+    return RawResponse(content=attempt.end_photo_data, media_type=attempt.end_photo_content_type or "image/jpeg")
+
+
+@router.get("/attempts/{attempt_id}/id-photo")
+def get_id_photo(
+    attempt_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.instructor)),
+):
+    """The start-of-exam ID verification photo, kept separately from the
+    attempt (see models/id_verification_photo.py — it predates the attempt
+    row existing), looked up by the same (exam_id, candidate_id_number)
+    pair that identifies this attempt's candidate."""
+    attempt = get_owned_attempt_for_instructor(attempt_id, db, current_user)
+    if not attempt.candidate_id_number:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No ID photo for this attempt")
+    photo = (
+        db.query(IdVerificationPhoto)
+        .filter(
+            IdVerificationPhoto.exam_id == attempt.exam_id,
+            IdVerificationPhoto.candidate_id_number == attempt.candidate_id_number,
+        )
+        .first()
+    )
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No ID photo for this attempt")
+    return RawResponse(content=photo.photo_data, media_type=photo.content_type)
 
 
 @router.get("/attempts/{attempt_id}/grade", response_model=GradeReviewOut)

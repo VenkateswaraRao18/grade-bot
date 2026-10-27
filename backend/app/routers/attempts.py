@@ -1,11 +1,9 @@
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.deps import get_current_attempt
 from app.db.session import get_db
 from app.models.exam import Exam
@@ -302,12 +300,7 @@ def upload_end_photo(
     if len(contents) > END_PHOTO_MAX_BYTES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 8MB)")
 
-    storage_dir = Path(settings.end_photo_storage_dir)
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    extension = ".jpg" if file.content_type == "image/jpeg" else ".png"
-    dest_path = storage_dir / f"{attempt.id}{extension}"
-    dest_path.write_bytes(contents)
-
-    attempt.end_photo_path = str(dest_path)
+    attempt.end_photo_data = contents
+    attempt.end_photo_content_type = file.content_type
     db.commit()
     return {"status": "recorded"}

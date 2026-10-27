@@ -6,10 +6,6 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440
-    id_photo_storage_dir: str = "storage/id_photos"
-    end_photo_storage_dir: str = "storage/exam_end_photos"
-    submission_storage_dir: str = "storage/submissions"
-    ground_truth_storage_dir: str = "storage/ground_truth"
     elevenlabs_api_key: str | None = None
     elevenlabs_voice_id: str | None = None
     claude_api_key: str | None = None

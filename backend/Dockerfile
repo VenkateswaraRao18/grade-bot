@@ -4,9 +4,7 @@ WORKDIR /app
 
 # tesseract-ocr: pytesseract is a wrapper — it shells out to the tesseract
 # binary at runtime (used for ID-photo OCR), not part of the slim base image.
-# build-essential: chromadb's dependency tree (hnswlib in particular) can
-# need a C++ compiler to build from source if no prebuilt wheel matches.
-RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -14,11 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Railway: mount a persistent volume at /app/storage so uploaded files and
-# Chroma's local vector DB survive redeploys — without it, every deploy
-# wipes course materials, submissions, and the RAG index.
-RUN mkdir -p storage/id_photos storage/exam_end_photos storage/course_materials \
-    storage/submissions storage/ground_truth storage/chroma
+# No local storage/volume needed — uploaded photos, student submission
+# text, and the pgvector embeddings all live in Postgres, so the backend
+# is fully stateless and safe to redeploy without losing anything.
 
 EXPOSE 8000
 

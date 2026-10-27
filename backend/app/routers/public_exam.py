@@ -1,17 +1,17 @@
+import io
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.deps import get_entry_claims, get_verified_claims
 from app.core.security import create_access_token, verify_password
 from app.db.session import get_db
 from app.models.exam import Exam, ExamStatus
 from app.models.exam_attempt import AttemptStatus, ExamAttempt
 from app.models.exam_link import ExamLink
+from app.models.id_verification_photo import IdVerificationPhoto
 from app.models.submission import ExamSubmission
 from app.schemas.public_exam import EnterExamIn, PublicExamEntryOut, PublicStartOut, PublicVerifyIdOut
 from app.services.ocr_service import extract_text, id_number_found_in_text
@@ -94,14 +94,11 @@ def verify_id_public(
     if len(contents) > ID_PHOTO_MAX_BYTES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large (max 8MB)")
 
-    storage_dir = Path(settings.id_photo_storage_dir)
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    extension = ".jpg" if file.content_type == "image/jpeg" else ".png"
-    dest_path = storage_dir / f"{uuid.uuid4()}{extension}"
-    dest_path.write_bytes(contents)
-
+    # OCR runs directly on the uploaded bytes — never written to disk, so
+    # there's nothing to persist for an unmatched photo (see below, the
+    # photo is only ever saved once we know which candidate it belongs to).
     try:
-        with Image.open(dest_path) as image:
+        with Image.open(io.BytesIO(contents)) as image:
             ocr_text = extract_text(image)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not read image file") from exc
@@ -110,6 +107,26 @@ def verify_id_public(
 
     if matched_id is None:
         return PublicVerifyIdOut(matched=False, verified_token=None, extracted_text=ocr_text.strip())
+
+    # Persist the photo now that it's tied to a specific candidate, for the
+    # instructor to review later alongside the end-of-exam recheck photo. A
+    # retake overwrites the prior photo for this (exam, candidate) rather
+    # than accumulating rows.
+    existing_photo = (
+        db.query(IdVerificationPhoto)
+        .filter(IdVerificationPhoto.exam_id == exam.id, IdVerificationPhoto.candidate_id_number == matched_id)
+        .first()
+    )
+    if existing_photo is not None:
+        existing_photo.photo_data = contents
+        existing_photo.content_type = file.content_type
+    else:
+        db.add(
+            IdVerificationPhoto(
+                exam_id=exam.id, candidate_id_number=matched_id, photo_data=contents, content_type=file.content_type
+            )
+        )
+    db.commit()
 
     already_completed = (
         db.query(ExamAttempt)

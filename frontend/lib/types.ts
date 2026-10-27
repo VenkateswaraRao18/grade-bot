@@ -190,6 +190,7 @@ export interface AttemptContext {
   status: string;
   ended_reason: string | null;
   has_end_photo: boolean;
+  has_id_photo: boolean;
 }
 
 export interface AuditLogEntry {
