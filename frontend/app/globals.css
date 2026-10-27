@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+:root {
+  /* ORAL brand (2026 redesign) — editorial, academic, restrained. See
+   * project design brief: midnight slate primary, warm ivory canvas,
+   * antique brass accent, muted evergreen success, soft terracotta warn. */
+  --background: #f7f5ef;
+  --foreground: #172b3a;
+
+  --color-canvas: #f7f5ef;
+  --color-surface: #ffffff;
+  --color-line: #e4e5e3;
+  --color-ink: #172b3a;
+  --color-ink-soft: #68727d;
+
+  --color-accent: #c28b45;
+  --color-accent-soft: #f7eedf;
+  --color-success: #367665;
+  --color-success-soft: #e8f0ec;
+  --color-warn: #9c5340;
+  --color-warn-soft: #f4e7e3;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
+
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-line: var(--color-line);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-accent: var(--color-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-success-ink: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-warn: var(--color-warn);
+  --color-warn-soft: var(--color-warn-soft);
+
+  /* Primary brand scale (midnight slate) — replaces Tailwind's default sky
+   * scale app-wide, so every existing sky-* class (used consistently as
+   * the accent/primary color throughout) picks up the new brand navy
+   * without touching each file that uses it. */
+  --color-sky-50: #eef2f4;
+  --color-sky-100: #dce3e8;
+  --color-sky-200: #b9c8d1;
+  --color-sky-300: #8fa6b4;
+  --color-sky-400: #5d7e90;
+  --color-sky-500: #3a5a6d;
+  --color-sky-600: #172b3a;
+  --color-sky-700: #11212e;
+  --color-sky-800: #0c1920;
+  --color-sky-900: #060f15;
+
+  /* Success scale (muted evergreen) — replaces Tailwind's default emerald
+   * scale, same rationale as sky-* above. */
+  --color-emerald-50: #ebf4f1;
+  --color-emerald-100: #d3e7e0;
+  --color-emerald-200: #a7d0c1;
+  --color-emerald-300: #7bb8a3;
+  --color-emerald-400: #549e85;
+  --color-emerald-500: #40876e;
+  --color-emerald-600: #367665;
+  --color-emerald-700: #2a5d50;
+  --color-emerald-800: #1e453c;
+  --color-emerald-900: #132c27;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), var(--font-sans), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

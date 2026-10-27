@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.env
+storage/id_photos/*
+!storage/id_photos/.gitkeep
+storage/course_materials/*
+!storage/course_materials/.gitkeep
+storage/chroma/
+storage/submissions/*
+!storage/submissions/.gitkeep
+storage/exam_end_photos/*
+!storage/exam_end_photos/.gitkeep
+storage/ground_truth/*
+!storage/ground_truth/.gitkeep

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+
+# Environment / secrets — never commit real keys, only the .example templates
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS
+.DS_Store
+
+# Uploaded/runtime data — real student documents, ID photos, and the vector
+# store built from them. Only the .gitkeep placeholders that mark these
+# directories as existing stay tracked; everything actually uploaded at
+# runtime does not belong in version control.
+backend/storage/*/*
+!backend/storage/*/.gitkeep
+backend/storage/chroma/
+
+# Real student rosters/gradebooks dropped at the project root for local
+# testing (Canvas exports, bulk-downloaded submission folders) — never
+# committed, regardless of filename.
+/submissions (1)/
+/*.csv
+
+# Editor/misc
+*.log
+.vercel
