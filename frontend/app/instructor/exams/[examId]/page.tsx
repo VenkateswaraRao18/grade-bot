@@ -1197,8 +1197,8 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
                         className="mt-2"
                       />
                       <p className="mt-1.5 text-xs text-ink-soft">
-                        Give each criterion a point value in parentheses, e.g. &quot;Conceptual understanding (35
-                        pts)&quot;, summing to 100.
+                        One criterion with a point value, e.g. &quot;Clarity and correctness of explanation (30
+                        pts)&quot;.
                       </p>
                       {rubricError && <p className="mt-1.5 text-xs text-red-600">{rubricError}</p>}
                       <div className="mt-2.5 flex gap-2">

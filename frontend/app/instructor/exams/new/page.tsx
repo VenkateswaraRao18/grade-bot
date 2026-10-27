@@ -310,7 +310,7 @@ export default function NewExamPage() {
                     rows={3}
                     value={rubric}
                     onChange={(e) => setRubric(e.target.value)}
-                    placeholder='e.g. "Conceptual understanding (35 pts): ... Clarity (35 pts): ... Terminology (30 pts): ..."'
+                    placeholder='e.g. "Clarity and correctness of explanation (30 pts)"'
                   />
                 </div>
                 <div>

@@ -47,8 +47,8 @@ class Exam(Base):
         Text,
         nullable=False,
         default=(
-            "Grade the student on: (1) conceptual understanding, (2) clarity and correctness of "
-            "explanation, (3) appropriate use of terminology. Score each 0-100."
+            "Grade the student on a single criterion: Clarity and correctness of explanation, "
+            "worth 30 points total."
         ),
     )
     sample_questions: Mapped[str | None] = mapped_column(Text, nullable=True)
