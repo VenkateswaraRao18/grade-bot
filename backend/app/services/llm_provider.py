@@ -151,23 +151,31 @@ def _gemini_embed(texts: list[str], api_key: str, model: str, usage_label: str =
     width (see models/submission_chunk.EMBEDDING_DIM) — the pgvector column
     is a single fixed width, so dev (Ollama) and prod (Gemini) have to
     agree on it regardless of which one actually wrote a given row."""
-    with httpx.Client(base_url=GEMINI_BASE_URL, timeout=60.0) as client:
-        res = client.post(
-            f"/models/{model}:batchEmbedContents",
-            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-            json={
-                "requests": [
-                    {
-                        "model": f"models/{model}",
-                        "content": {"parts": [{"text": text}]},
-                        "outputDimensionality": EMBEDDING_DIM,
-                    }
-                    for text in texts
-                ]
-            },
-        )
-        res.raise_for_status()
-        vectors = [e["values"] for e in res.json()["embeddings"]]
+    def _call() -> list[list[float]]:
+        with httpx.Client(base_url=GEMINI_BASE_URL, timeout=60.0) as client:
+            res = client.post(
+                f"/models/{model}:batchEmbedContents",
+                headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                json={
+                    "requests": [
+                        {
+                            "model": f"models/{model}",
+                            "content": {"parts": [{"text": text}]},
+                            "outputDimensionality": EMBEDDING_DIM,
+                        }
+                        for text in texts
+                    ]
+                },
+            )
+            res.raise_for_status()
+            return [e["values"] for e in res.json()["embeddings"]]
+
+    # Bulk submission uploads fire one of these per file in quick succession
+    # with no pacing between them — easy to trip Gemini's free-tier RPM limit
+    # on anything beyond a handful of files. Retry with backoff the same way
+    # generate() does, instead of letting a transient 429 permanently fail
+    # that file's indexing.
+    vectors = _with_retry(_call, label=f"gemini:{usage_label}")
 
     # Gemini's embed API doesn't return token usage in the response (unlike
     # Claude's response.usage), so this is a ~4-chars-per-token estimate —

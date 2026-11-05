@@ -130,6 +130,10 @@ export default function LiveExamPage(props: PageProps<"/exam/[attemptId]">) {
     () => typeof document !== "undefined" && !!document.documentElement.requestFullscreen
   );
   const [question, setQuestion] = useState<NextQuestion | null>(null);
+  // Non-null only while the spoken opening line is playing, before the
+  // first real question starts — shown in place of the question card so
+  // the greeting is captioned on screen, not just heard.
+  const [greeting, setGreeting] = useState<string | null>(null);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -359,7 +363,11 @@ export default function LiveExamPage(props: PageProps<"/exam/[attemptId]">) {
       const askQuestion = () => speakText(question.text ?? "", () => beginListeningCycle(() => submitAnswer(NO_ANSWER_MARKER)));
       if (!hasGreetedRef.current) {
         hasGreetedRef.current = true;
-        speakText(OPENING_LINE, askQuestion);
+        setGreeting(OPENING_LINE);
+        speakText(OPENING_LINE, () => {
+          setGreeting(null);
+          askQuestion();
+        });
       } else {
         askQuestion();
       }
@@ -644,7 +652,7 @@ export default function LiveExamPage(props: PageProps<"/exam/[attemptId]">) {
 
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 pb-12 sm:px-8">
         <div className="flex min-h-7 items-center justify-center gap-2">
-          {question && !loadingQuestion && (
+          {!greeting && question && !loadingQuestion && (
             <>
               {question.is_graded === false ? (
                 <Badge tone="neutral">Warm-up</Badge>
@@ -673,21 +681,21 @@ export default function LiveExamPage(props: PageProps<"/exam/[attemptId]">) {
           </p>
         </div>
 
-        {question && !loadingQuestion && (
+        {(greeting || (question && !loadingQuestion)) && (
           <>
             <div className="flex flex-col gap-4">
               <div className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-sm">
                 <button
-                  onClick={() => speakText(question.text ?? "")}
+                  onClick={() => speakText(greeting ?? question?.text ?? "")}
                   className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
-                  title="Replay question audio"
+                  title={greeting ? "Replay greeting audio" : "Replay question audio"}
                 >
                   <Volume2 className="h-4 w-4" strokeWidth={2} />
                 </button>
-                <p className="text-lg font-medium leading-relaxed text-zinc-100">{question.text}</p>
+                <p className="text-lg font-medium leading-relaxed text-zinc-100">{greeting ?? question?.text}</p>
               </div>
 
-              {question.source_excerpt && (
+              {!greeting && question?.source_excerpt && (
                 <div className="flex items-start gap-2.5 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3.5">
                   <FileText className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" strokeWidth={1.75} />
                   <div className="min-w-0 flex-1">
@@ -715,7 +723,7 @@ export default function LiveExamPage(props: PageProps<"/exam/[attemptId]">) {
                 </div>
               )}
 
-              {speech.supported ? (
+              {!greeting && (speech.supported ? (
                 <div className="flex flex-col items-center gap-4 pt-2">
                   {speech.listening && (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-400">
@@ -766,7 +774,7 @@ export default function LiveExamPage(props: PageProps<"/exam/[attemptId]">) {
                     </Button>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </>
         )}

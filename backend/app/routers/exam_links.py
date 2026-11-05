@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_role
-from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.exam_link import ExamLink
 from app.models.user import User, UserRole
@@ -43,11 +42,11 @@ def generate_exam_link(
     link_token = secrets.token_urlsafe(12)
 
     if link is None:
-        link = ExamLink(exam_id=exam.id, link_token=link_token, passcode_hash=hash_password(passcode))
+        link = ExamLink(exam_id=exam.id, link_token=link_token, passcode=passcode)
         db.add(link)
     else:
         link.link_token = link_token
-        link.passcode_hash = hash_password(passcode)
+        link.passcode = passcode
     db.commit()
     db.refresh(link)
 
@@ -60,10 +59,11 @@ def get_exam_link(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.instructor)),
 ):
-    """Returns the link token only — never the passcode, which is shown
-    exactly once at generation/rotation time (see generate_exam_link)."""
+    """Returns the passcode too, not just the link token — it's stored in
+    plaintext (see models.ExamLink) specifically so the instructor can look
+    it up any time, not just once at generation."""
     exam = get_owned_exam(exam_id, db, current_user)
     link = db.query(ExamLink).filter(ExamLink.exam_id == exam_id).first()
     if link is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No link generated yet")
-    return ExamLinkOut(exam_id=exam.id, link_token=link.link_token)
+    return ExamLinkOut(exam_id=exam.id, link_token=link.link_token, passcode=link.passcode)

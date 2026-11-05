@@ -157,7 +157,6 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
   const [exportingCsv, setExportingCsv] = useState(false);
 
   const [examLink, setExamLink] = useState<ExamLink | null>(null);
-  const [revealedPasscode, setRevealedPasscode] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
@@ -332,8 +331,7 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
     try {
       const token = getToken() ?? undefined;
       const result = await apiFetch<ExamLinkCreate>(`/exams/${examId}/link`, { method: "POST", token });
-      setExamLink({ exam_id: result.exam_id, link_token: result.link_token });
-      setRevealedPasscode(result.passcode);
+      setExamLink({ exam_id: result.exam_id, link_token: result.link_token, passcode: result.passcode });
       setRegenerateConfirmOpen(false);
     } catch (err) {
       setLinkError(err instanceof ApiError ? err.message : "Could not generate link.");
@@ -1299,19 +1297,19 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
                         </div>
                       </div>
 
-                      {revealedPasscode ? (
+                      {examLink.passcode ? (
                         <div>
-                          <Label>Passcode (shown once — copy it now)</Label>
+                          <Label>Passcode</Label>
                           <div className="flex gap-1.5">
                             <Input
                               readOnly
-                              value={revealedPasscode}
+                              value={examLink.passcode}
                               className="font-[family-name:var(--font-mono)] text-sm font-bold tracking-wider text-sky-700"
                             />
                             <Button
                               size="sm"
                               variant="secondary"
-                              onClick={() => copyToClipboard(revealedPasscode, "passcode")}
+                              onClick={() => copyToClipboard(examLink.passcode as string, "passcode")}
                             >
                               {copiedField === "passcode" ? (
                                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2} />
@@ -1323,8 +1321,8 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
                         </div>
                       ) : (
                         <p className="text-xs text-ink-soft">
-                          The passcode was only shown when this link was last generated — regenerate to see a new
-                          one if you&apos;ve lost it.
+                          This link was generated before passcodes were saved — regenerate to get one you can view
+                          any time.
                         </p>
                       )}
 

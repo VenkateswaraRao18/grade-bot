@@ -1,4 +1,5 @@
 import io
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -6,7 +7,7 @@ from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_entry_claims, get_verified_claims
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.exam import Exam, ExamStatus
 from app.models.exam_attempt import AttemptStatus, ExamAttempt
@@ -33,7 +34,15 @@ def enter_exam(link_token: str, payload: EnterExamIn, db: Session = Depends(get_
     generic errors (never "wrong passcode" vs "unknown link") so this can't
     be used to probe for valid link tokens."""
     link = db.query(ExamLink).filter(ExamLink.link_token == link_token).first()
-    if link is None or not verify_password(payload.passcode, link.passcode_hash):
+    # Case-insensitive on purpose (the passcode alphabet is uppercase-only,
+    # but typed-by-hand entry shouldn't fail over shift-key slips) and
+    # constant-time so timing can't be used to brute-force it a character
+    # at a time.
+    if (
+        link is None
+        or link.passcode is None
+        or not secrets.compare_digest(payload.passcode.strip().upper(), link.passcode.strip().upper())
+    ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid link or passcode")
 
     exam = db.get(Exam, link.exam_id)

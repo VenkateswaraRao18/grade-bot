@@ -22,10 +22,12 @@ class ExamLink(Base):
         UUID(as_uuid=True), ForeignKey("exams.id"), nullable=False, unique=True, index=True
     )
     link_token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
-    # Hashed the same way as user passwords (passlib/bcrypt) — a passcode is
-    # shared among ~160 students, so it's not a high-value secret, but
-    # hashing it is free and means a DB read alone can't leak it.
-    passcode_hash: Mapped[str] = mapped_column(String, nullable=False)
+    # Stored in plaintext deliberately — the instructor needs to be able to
+    # look this up any time (not just once at generation), and it's a code
+    # shared with ~160 students, not a real per-user secret like a password.
+    # Nullable only because a link created before this column existed has
+    # no recoverable plaintext; the instructor just regenerates it.
+    passcode: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

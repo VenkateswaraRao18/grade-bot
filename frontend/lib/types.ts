@@ -40,6 +40,9 @@ export interface BulkSubmissionResult {
 export interface ExamLink {
   exam_id: string;
   link_token: string;
+  // Null only for a link generated before passcodes were stored in
+  // plaintext, and never regenerated since.
+  passcode: string | null;
 }
 
 export interface ExamLinkCreate extends ExamLink {
