@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileSpreadsheet } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { BulkSubmissionResult } from "@/lib/types";
+import { BulkSubmissionResult, ExamSubmission } from "@/lib/types";
 import { extractCanvasUserId, parseGradebookCsv } from "@/lib/gradebookMatch";
 import { UPLOAD_ACCEPT, UPLOAD_HINT } from "@/lib/fileTypes";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +35,34 @@ export function GradebookMatchUpload({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [result, setResult] = useState<BulkSubmissionResult | null>(null);
+  const [indexedCount, setIndexedCount] = useState<number | null>(null);
+
+  // After the upload response (which returns immediately — indexing runs
+  // in the background, see routers/submissions.py), poll for how many of
+  // this batch's submissions have finished indexing so the instructor
+  // isn't left guessing whether anything is still happening.
+  useEffect(() => {
+    if (!result || result.submission_ids.length === 0) return;
+    const ids = new Set(result.submission_ids);
+    let cancelled = false;
+    const token = getToken() ?? undefined;
+    const poll = () => {
+      apiFetch<ExamSubmission[]>(`/exams/${examId}/submissions`, { token }).then((subs) => {
+        if (cancelled) return;
+        const count = subs.filter((s) => ids.has(s.id) && s.indexed).length;
+        setIndexedCount(count);
+        onUploaded();
+        if (count >= ids.size) clearInterval(interval);
+      });
+    };
+    const interval = setInterval(poll, 2000);
+    poll();
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   function handleGradebookFile(files: FileList) {
     const file = files[0];
@@ -108,6 +136,7 @@ export function GradebookMatchUpload({
         token,
       });
       setResult(res);
+      setIndexedCount(0);
       setRows([]);
       onUploaded();
     } catch (err) {
@@ -198,8 +227,11 @@ export function GradebookMatchUpload({
       {uploadError && <p className="whitespace-pre-wrap text-xs text-red-600">{uploadError}</p>}
       {result && (
         <p className="text-xs text-emerald-700">
-          {result.created} added, {result.updated} updated. Indexing runs in the background — check the Documents
-          tab for each one&apos;s status.
+          {result.created} added, {result.updated} updated.{" "}
+          {result.submission_ids.length > 0 &&
+            (indexedCount !== null && indexedCount >= result.submission_ids.length
+              ? `All ${result.submission_ids.length} indexed.`
+              : `Indexing ${indexedCount ?? 0} of ${result.submission_ids.length}...`)}
         </p>
       )}
     </div>

@@ -177,6 +177,7 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
   const [bulkUploading, setBulkUploading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkResult, setBulkResult] = useState<BulkSubmissionResult | null>(null);
+  const [bulkIndexedCount, setBulkIndexedCount] = useState<number | null>(null);
 
   function load() {
     const token = getToken() ?? undefined;
@@ -428,17 +429,41 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
         token,
       });
       setBulkResult(result);
+      setBulkIndexedCount(0);
       setBulkFiles(null);
       setBulkMappingFile(null);
-      const token2 = getToken() ?? undefined;
-      const updated = await apiFetch<ExamSubmission[]>(`/exams/${examId}/submissions`, { token: token2 });
-      setSubmissions(updated);
     } catch (err) {
       setBulkError(err instanceof ApiError ? err.message : "Could not upload documents.");
     } finally {
       setBulkUploading(false);
     }
   }
+
+  // Upload returns immediately — indexing runs in the background (see
+  // routers/submissions.py) — so poll for this batch's progress instead of
+  // a single refresh right after the response.
+  useEffect(() => {
+    if (!bulkResult || bulkResult.submission_ids.length === 0) return;
+    const ids = new Set(bulkResult.submission_ids);
+    let cancelled = false;
+    const token = getToken() ?? undefined;
+    const poll = () => {
+      apiFetch<ExamSubmission[]>(`/exams/${examId}/submissions`, { token }).then((subs) => {
+        if (cancelled) return;
+        setSubmissions(subs);
+        const count = subs.filter((s) => ids.has(s.id) && s.indexed).length;
+        setBulkIndexedCount(count);
+        if (count >= ids.size) clearInterval(interval);
+      });
+    };
+    const interval = setInterval(poll, 2000);
+    poll();
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkResult]);
 
   if (!user || loading || !exam) return <PageSpinner />;
 
@@ -1136,8 +1161,11 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
                     {bulkError && <p className="mt-2 whitespace-pre-wrap text-xs text-red-600">{bulkError}</p>}
                     {bulkResult && (
                       <p className="mt-2 text-xs text-emerald-700">
-                        {bulkResult.created} added, {bulkResult.updated} updated. Indexing runs in the
-                        background — check the Documents tab for each one&apos;s status.
+                        {bulkResult.created} added, {bulkResult.updated} updated.{" "}
+                        {bulkResult.submission_ids.length > 0 &&
+                          (bulkIndexedCount !== null && bulkIndexedCount >= bulkResult.submission_ids.length
+                            ? `All ${bulkResult.submission_ids.length} indexed.`
+                            : `Indexing ${bulkIndexedCount ?? 0} of ${bulkResult.submission_ids.length}...`)}
                       </p>
                     )}
                   </>

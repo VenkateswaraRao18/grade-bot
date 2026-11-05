@@ -203,4 +203,10 @@ def bulk_upload_submissions(
 
     background_tasks.add_task(_index_submissions_background, exam_id, to_index)
 
-    return BulkSubmissionResult(total=len(file_contents), created=created, updated=updated, failed_indexing=[])
+    return BulkSubmissionResult(
+        total=len(file_contents),
+        created=created,
+        updated=updated,
+        failed_indexing=[],
+        submission_ids=[item[0] for item in to_index],
+    )

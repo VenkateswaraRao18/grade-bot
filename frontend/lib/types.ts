@@ -35,6 +35,7 @@ export interface BulkSubmissionResult {
   created: number;
   updated: number;
   failed_indexing: string[];
+  submission_ids: string[];
 }
 
 export interface ExamLink {

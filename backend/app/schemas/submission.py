@@ -32,3 +32,8 @@ class BulkSubmissionResult(BaseModel):
     # can't be known yet here. Check each submission's `indexed` flag via
     # GET /exams/{id}/submissions instead.
     failed_indexing: list[str]
+    # The submissions touched by this batch (created or updated), so the
+    # frontend can poll GET /exams/{id}/submissions and show live progress
+    # ("N of total indexed") for just this upload, not the exam's lifetime
+    # total.
+    submission_ids: list[uuid.UUID]
