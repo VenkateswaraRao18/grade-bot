@@ -1136,10 +1136,8 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
                     {bulkError && <p className="mt-2 whitespace-pre-wrap text-xs text-red-600">{bulkError}</p>}
                     {bulkResult && (
                       <p className="mt-2 text-xs text-emerald-700">
-                        {bulkResult.created} added, {bulkResult.updated} updated
-                        {bulkResult.failed_indexing.length > 0 &&
-                          `, ${bulkResult.failed_indexing.length} failed to index`}
-                        .
+                        {bulkResult.created} added, {bulkResult.updated} updated. Indexing runs in the
+                        background — check the Documents tab for each one&apos;s status.
                       </p>
                     )}
                   </>

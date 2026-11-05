@@ -2,11 +2,11 @@ import logging
 import tempfile
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_role
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.submission import ExamSubmission
 from app.models.user import User, UserRole
 from app.routers.exams import get_owned_exam
@@ -55,6 +55,41 @@ def list_exam_submissions(
     ]
 
 
+def _index_submissions_background(
+    exam_id: uuid.UUID,
+    items: list[tuple[uuid.UUID, str, bytes, str, str, str]],
+) -> None:
+    """Runs after the bulk-upload response is already sent — this is the
+    slow part (extraction + an embedding API call per file), and at a real
+    class's worth of files (100+) it's far too slow to do inline within one
+    HTTP request/response cycle without hanging the upload indefinitely.
+    `items` is (submission_id, filename, contents, content_type, extension,
+    student_id_number) per file. Runs in its own DB session since the
+    request-scoped one is closed by the time this executes."""
+    db = SessionLocal()
+    try:
+        for submission_id, fname, contents, content_type, extension, student_id_number in items:
+            try:
+                # Extracted once from a temp file (auto-deleted on exit) and
+                # never persisted — only the resulting indexed text is kept
+                # (as embedded chunks in pgvector), not the original document.
+                with tempfile.NamedTemporaryFile(suffix=extension) as tmp:
+                    tmp.write(contents)
+                    tmp.flush()
+                    text = extract_text_from_material(tmp.name, content_type)
+                chunks = chunk_text(text)
+                index_submission_chunks(submission_id, exam_id, student_id_number, chunks)
+                submission = db.get(ExamSubmission, submission_id)
+                if submission is not None:
+                    submission.indexed = True
+                    db.commit()
+            except Exception:
+                logger.exception("Failed to index bulk submission %s (%s) for RAG retrieval", submission_id, fname)
+                db.rollback()
+    finally:
+        db.close()
+
+
 @router.post(
     "/exams/{exam_id}/bulk-submissions",
     response_model=BulkSubmissionResult,
@@ -62,6 +97,7 @@ def list_exam_submissions(
 )
 def bulk_upload_submissions(
     exam_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     mapping_file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -73,7 +109,14 @@ def bulk_upload_submissions(
     selection — the only way this is practical at ~160 students. All-or-
     nothing: if the mapping doesn't cleanly account for every uploaded file
     (and vice versa), nothing is written, so a typo can't silently attach
-    one student's exam material to another student's ID number."""
+    one student's exam material to another student's ID number.
+
+    Row creation (fast, DB-only) happens here; extraction + embedding
+    (slow, one API call per file) is handed off to a background task so
+    the response comes back immediately instead of the request hanging
+    for however long 100+ sequential embedding calls take. Progress is
+    visible via each submission's `indexed` flag (GET
+    /exams/{exam_id}/submissions), not in this response."""
     get_owned_exam(exam_id, db, current_user)
 
     if not files:
@@ -122,7 +165,7 @@ def bulk_upload_submissions(
     norm_to_sid = {fname.strip().lower(): sid for sid, fname in mapping_rows}
     created = 0
     updated = 0
-    failed_indexing: list[str] = []
+    to_index: list[tuple[uuid.UUID, str, bytes, str, str, str]] = []
 
     for fname, contents in file_contents.items():
         student_id_number = norm_to_sid[fname.strip().lower()]
@@ -155,24 +198,9 @@ def bulk_upload_submissions(
             db.add(submission)
             created += 1
         db.commit()
-        db.refresh(submission)
 
-        try:
-            # Extracted once from a temp file (auto-deleted on exit) and
-            # never persisted — only the resulting indexed text is kept
-            # (as embedded chunks in pgvector), not the original document.
-            with tempfile.NamedTemporaryFile(suffix=extension) as tmp:
-                tmp.write(contents)
-                tmp.flush()
-                text = extract_text_from_material(tmp.name, content_type)
-            chunks = chunk_text(text)
-            index_submission_chunks(submission.id, exam_id, student_id_number, chunks)
-            submission.indexed = True
-            db.commit()
-        except Exception:
-            logger.exception("Failed to index bulk submission %s (%s) for RAG retrieval", submission.id, fname)
-            failed_indexing.append(fname)
+        to_index.append((submission_id, fname, contents, content_type, extension, student_id_number))
 
-    return BulkSubmissionResult(
-        total=len(file_contents), created=created, updated=updated, failed_indexing=failed_indexing
-    )
+    background_tasks.add_task(_index_submissions_background, exam_id, to_index)
+
+    return BulkSubmissionResult(total=len(file_contents), created=created, updated=updated, failed_indexing=[])

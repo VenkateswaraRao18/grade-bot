@@ -198,8 +198,8 @@ export function GradebookMatchUpload({
       {uploadError && <p className="whitespace-pre-wrap text-xs text-red-600">{uploadError}</p>}
       {result && (
         <p className="text-xs text-emerald-700">
-          {result.created} added, {result.updated} updated
-          {result.failed_indexing.length > 0 && `, ${result.failed_indexing.length} failed to index`}.
+          {result.created} added, {result.updated} updated. Indexing runs in the background — check the Documents
+          tab for each one&apos;s status.
         </p>
       )}
     </div>

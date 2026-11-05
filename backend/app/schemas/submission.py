@@ -27,4 +27,8 @@ class BulkSubmissionResult(BaseModel):
     total: int
     created: int
     updated: int
+    # Always empty at response time now — indexing runs in the background
+    # after the response is sent (see routers/submissions.py), so a failure
+    # can't be known yet here. Check each submission's `indexed` flag via
+    # GET /exams/{id}/submissions instead.
     failed_indexing: list[str]
