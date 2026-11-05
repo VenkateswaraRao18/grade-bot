@@ -54,6 +54,20 @@ def delete_submission_chunks(submission_id: uuid.UUID) -> None:
         db.close()
 
 
+def delete_exam_chunks(exam_id: uuid.UUID) -> None:
+    """Deletes every chunk belonging to this exam in one query, regardless
+    of how many submissions it has — used when deleting a whole exam.
+    Looping delete_submission_chunks() per submission instead (one DB
+    session opened and closed per call) is what used to make deleting an
+    exam with 100+ submissions visibly slow."""
+    db = SessionLocal()
+    try:
+        db.execute(delete(SubmissionChunk).where(SubmissionChunk.exam_id == exam_id))
+        db.commit()
+    finally:
+        db.close()
+
+
 def search_submissions(
     exam_id: uuid.UUID, student_key: uuid.UUID | str, query_text: str, k: int = 5
 ) -> list[dict]:

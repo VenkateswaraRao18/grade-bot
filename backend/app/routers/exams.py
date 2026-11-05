@@ -16,7 +16,7 @@ from app.models.submission import ExamSubmission
 from app.models.user import User, UserRole
 from app.schemas.exam import ExamCreate, ExamOut, ExamRubricUpdate, ExamUpdate
 from app.services.text_extraction import extract_text_from_material, resolve_upload_type
-from app.services.vector_store import delete_submission_chunks
+from app.services.vector_store import delete_exam_chunks
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["exams"])
@@ -215,9 +215,7 @@ def delete_exam(
     db.query(ExamLink).filter(ExamLink.exam_id == exam_id).delete()
     db.query(IdVerificationPhoto).filter(IdVerificationPhoto.exam_id == exam_id).delete()
 
-    submissions = db.query(ExamSubmission).filter(ExamSubmission.exam_id == exam_id).all()
-    for submission in submissions:
-        delete_submission_chunks(submission.id)
+    delete_exam_chunks(exam_id)
     db.query(ExamSubmission).filter(ExamSubmission.exam_id == exam_id).delete()
 
     db.delete(exam)
