@@ -42,6 +42,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { GradebookMatchUpload } from "@/components/exam/GradebookMatchUpload";
+import { IndexingStatus } from "@/components/exam/IndexingStatus";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageSpinner } from "@/components/ui/Spinner";
@@ -1159,15 +1160,7 @@ export default function ExamDetailPage(props: PageProps<"/instructor/exams/[exam
                         : `Upload ${bulkFiles?.length ?? 0} document${bulkFiles?.length === 1 ? "" : "s"}`}
                     </Button>
                     {bulkError && <p className="mt-2 whitespace-pre-wrap text-xs text-red-600">{bulkError}</p>}
-                    {bulkResult && (
-                      <p className="mt-2 text-xs text-emerald-700">
-                        {bulkResult.created} added, {bulkResult.updated} updated.{" "}
-                        {bulkResult.submission_ids.length > 0 &&
-                          (bulkIndexedCount !== null && bulkIndexedCount >= bulkResult.submission_ids.length
-                            ? `All ${bulkResult.submission_ids.length} indexed.`
-                            : `Indexing ${bulkIndexedCount ?? 0} of ${bulkResult.submission_ids.length}...`)}
-                      </p>
-                    )}
+                    {bulkResult && <IndexingStatus result={bulkResult} indexedCount={bulkIndexedCount} />}
                   </>
                 )}
 

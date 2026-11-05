@@ -10,6 +10,7 @@ import { UPLOAD_ACCEPT, UPLOAD_HINT } from "@/lib/fileTypes";
 import { Button } from "@/components/ui/Button";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { Input } from "@/components/ui/Input";
+import { IndexingStatus } from "@/components/exam/IndexingStatus";
 
 const GRADEBOOK_ACCEPT = ".csv,text/csv";
 
@@ -225,15 +226,7 @@ export function GradebookMatchUpload({
       </div>
 
       {uploadError && <p className="whitespace-pre-wrap text-xs text-red-600">{uploadError}</p>}
-      {result && (
-        <p className="text-xs text-emerald-700">
-          {result.created} added, {result.updated} updated.{" "}
-          {result.submission_ids.length > 0 &&
-            (indexedCount !== null && indexedCount >= result.submission_ids.length
-              ? `All ${result.submission_ids.length} indexed.`
-              : `Indexing ${indexedCount ?? 0} of ${result.submission_ids.length}...`)}
-        </p>
-      )}
+      {result && <IndexingStatus result={result} indexedCount={indexedCount} />}
     </div>
   );
 }
